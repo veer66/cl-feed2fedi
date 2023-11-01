@@ -5,5 +5,5 @@
    :FEDI-KEY ""
    :FEDI-ACCESS-TOKEN ""
    :MAX-ENTRIES 3
-   :DB-PATHNAME #P"feed2fedi.db"
+   :DB-PATHNAME #P"data/feed2fedi.db"
    :DURATION-HOURS 24)

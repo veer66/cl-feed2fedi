@@ -9,11 +9,11 @@
   (fedi-key "")
   (fedi-access-token "")
   (max-entries 3)
-  (db-pathname #P"feed2fedi.db")
+  (db-pathname #P"data/feed2fedi.db")
   (duration-hours 24))
 
 (defparameter *conf* (read-from-string
-		      (with-open-file (f "config.lisp")
+		      (with-open-file (f #P"data/config.lisp")
 			(let ((lines '()))
 			  (loop for line = (read-line f nil :EOF)
 				until (eq :EOF line)
