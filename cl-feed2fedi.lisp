@@ -23,11 +23,6 @@
 (defun load-feed (feed-url)
   (feedparser:parse-feed (drakma:http-request feed-url)))
 
-(defparameter *f1* (load-feed (getf *conf* :feed)))
-
-;;(alexandria:hash-table-plist (car ))
-
-
 (defun remove-known-entries (db-pathname entries)
   (let ((opt (create-options)))
     (set-create-if-missing opt t)
