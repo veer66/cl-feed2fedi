@@ -1,0 +1,28 @@
+FROM docker.io/debian:12 AS rocksdb
+RUN apt-get update && apt-get install -y sbcl wget git build-essential cmake make g++ libsnappy-dev libgflags-dev zlib1g-dev liblz4-dev libbz2-dev
+RUN wget https://github.com/facebook/rocksdb/archive/refs/tags/v6.26.1.tar.gz
+RUN tar xzvf v6.26.1.tar.gz
+RUN cd rocksdb-6.26.1 && mkdir build && cd build && cmake -DROCKSDB_BUILD_SHARED=1 -DUSE_RTT=1 -DPORTABLE=1 -DDISABLE_JEMALLOC=1 .. && make -j `nproc` && make install
+
+FROM docker.io/debian:12
+RUN apt-get update && apt-get install -y sbcl wget git libssl3 libsnappy-dev libgflags-dev zlib1g-dev liblz4-dev libbz2-dev
+ENV LD_RUN_PATH=/usr/local/lib
+ENV LD_LIBRARY_PATH=/usr/local/lib
+COPY --from=rocksdb /usr/lib/aarch64-linux-gnu/librocksdb.so /usr/local/lib/librocksdb.so
+RUN mkdir /work
+ENV HOME=/work
+WORKDIR /work
+RUN wget https://beta.quicklisp.org/quicklisp.lisp
+RUN sbcl --load quicklisp.lisp \
+	--eval '(quicklisp-quickstart:install)' \
+	--eval '(ql-util:without-prompting (ql:add-to-init-file))' \
+	--quit
+RUN rm quicklisp.lisp
+RUN sbcl --eval '(ql-dist:install-dist "http://dist.ultralisp.org/" :prompt nil)' --quit
+RUN mkdir -p /work/.config/common-lisp
+COPY source-registry.conf /work/.config/common-lisp
+ENV XDG_CONFIG_DIRS=/work/.config/common-lisp
+RUN git clone https://github.com/veer66/cl-feed2fedi/
+RUN sbcl --eval '(ql:quickload "cl-feed2fedi")' --quit
+
+
