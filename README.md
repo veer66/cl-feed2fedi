@@ -32,6 +32,7 @@ Let's enter base URL of a fediverse server that you want to use.
 ```
 Enter a base URL of a Fediverse server, e.g., https://mstdn.in.th:
 https://mstdn.in.th
+```
 
 Put a your generated url to your web browser
 
