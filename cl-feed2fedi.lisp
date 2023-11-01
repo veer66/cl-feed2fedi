@@ -12,13 +12,18 @@
   (db-pathname #P"data/feed2fedi.db")
   (duration-hours 24))
 
-(defparameter *conf* (read-from-string
-		      (with-open-file (f #P"data/config.lisp")
-			(let ((lines '()))
-			  (loop for line = (read-line f nil :EOF)
-				until (eq :EOF line)
-				do (push line lines))
-			  (format nil "~{~a~^~%~}" (reverse lines))))))
+(defparameter *conf* nil)
+
+(defun load-config ()
+  (read-from-string
+   (with-open-file (f #P"data/config.lisp")
+     (let ((lines '()))
+       (loop for line = (read-line f nil :EOF)
+	     until (eq :EOF line)
+	     do (push line lines))
+       (format nil "~{~a~^~%~}" (reverse lines))))))
+
+(defparameter *fedi-name* "cl-feed2fedi")
 
 (defun load-feed (feed-url)
   (feedparser:parse-feed (drakma:http-request feed-url)))
@@ -56,7 +61,7 @@
   (lambda (content)
     (let ((client (make-instance 'tooter:client
 				 :base (config-fedi-url conf)
-				 :name "cl-feed2fedi"
+				 :name *fedi-name*
 				 :key (config-fedi-key conf)
 				 :secret (config-fedi-secret conf)
 				 :access-token (config-fedi-access-token conf))))
@@ -79,6 +84,7 @@
     (mark-as-known db-pathname entries)))
 
 (defun main ()
+  (setq *conf* (load-config))
   (loop do
     (format t "FETCH-AND-POST ~a~%" (get-universal-time))
     (fetch-and-post *conf* (create-poster *conf*))
@@ -86,4 +92,49 @@
       (format t "SLEEP ~a seconds~%" sleep-duration)
       (sleep sleep-duration))))
 
+(defun gen-config ()
+  (let ((client nil)
+	(fedi-url "")
+	(feed "")
+	(auth-code ""))
+    (format t "Enter a feed URL:~%")
+    (setq feed (string-trim '(#\Newline #\Return #\Space #\Tab) (read-line)))
+    (let ((feed-res (feedparser:parse-feed (drakma:http-request feed))))
+      (unless feed-res
+	(format t "Failed to parse feed~%")
+	(return-from gen-config nil))
+      (unless (gethash :ENTRIES feed-res)
+	(format t "Failed to get entries from the feed.~%")
+	(return-from gen-config nil))
+      (unless (gethash :ID (car (gethash :ENTRIES feed-res)))
+	(format t "Failed to get ID from an entry")
+	(return-from gen-config nil)))
+    (format t "Enter a base URL of a Fediverse server, e.g., https://mstdn.in.th: ~%")
+    (setq fedi-url (string-trim '(#\Newline #\Return #\Space #\Tab) (read-line)))
+    (setq client (make-instance 'tooter:client
+				:name *fedi-name*
+				:base fedi-url))
+    (multiple-value-bind (auth-res auth-url)
+	(tooter:authorize client)
+      (declare (ignore auth-res))
+      (format t "Put this url ~a in your web browser and authorize this usage~%" auth-url))
+    (format t "Enter the code obtained from the web browser: ~%")
+    (setq auth-code (string-trim '(#\Newline #\Return #\Space #\Tab) (read-line)))
+    (multiple-value-bind (auth-res auth-url)
+	(tooter:authorize client auth-code)
+      (declare (ignore auth-url))
+      (unless auth-res
+	(format t "Failed to authorize~%")
+	(return-from gen-config nil)))
+    (with-open-file (fo #P"data/gen-config.lisp" :direction :output
+						 :if-does-not-exist :create
+						 :if-exists :supersede)
+      (let ((conf (make-config :feed feed
+			       :fedi-url fedi-url
+			       :fedi-secret (tooter:secret client)
+			       :fedi-key (tooter:key client)
+			       :fedi-access-token (tooter:access-token client))))
+	(write conf :stream fo)
+	(format t "Generated data/gen-config.lisp~%")
+	:OK))))
 

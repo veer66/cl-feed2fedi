@@ -2,4 +2,4 @@
 
 (defpackage #:cl-feed2fedi
   (:use #:cl #:cl-rocksdb)
-  (:export #:main))
+  (:export #:main #:gen-config))
